@@ -40,14 +40,15 @@ def eigbackward(
     operation: Type[EigOp],
     *args
 ) -> torch.Tensor:
-    gradient = symmetric(gradient)
-    eye = torch.eye(gradient.shape[-1], dtype=gradient.dtype, device=gradient.device)
-    ds = torch.diag_embed(operation.d(s, *args))
-    dLdV = 2 * gradient @ u @ output_s
-    dLdS = eye * (ds @ u.transpose(-1, -2) @ gradient @ u)
-    p = 1 / (s[:, :, None] - s[:, None, :] + 1e-6)
-    p = (1 - eye) * p + eye * 0
-    return u @ (symmetric(p.transpose(-1, -2) * (u.transpose(-1, -2) @ dLdV)) + dLdS) @ u.transpose(-1, -2)
+    output_s = torch.diagonal(output_s, dim1=-1, dim2=-2)
+    ds=torch.diag_embed(operation.d(s, *args))
+    L = (output_s[:, :, None] - output_s[:, None, :]) / (s[:, :, None] - s[:, None, :])
+    L[torch.logical_or(torch.isnan(L), torch.isinf(L))] = 0
+    L = L + ds
+    dp = L * (u.transpose(-1, -2) @ gradient @ u)
+    dp = u @ dp @ u.transpose(-1, -2)
+
+    return dp
 
 class ExpEigOp(EigOp):
     """
