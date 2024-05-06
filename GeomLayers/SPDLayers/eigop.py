@@ -28,8 +28,8 @@ def eigforward(
     *args
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     u, s, _ = torch.linalg.svd(input)
-    output_s = torch.diag_embed(operation.fn(s, *args))
-    output = u @ output_s @ u.transpose(-2, -1)
+    output_s = operation.fn(s, *args)
+    output = u @ torch.diag_embed(output_s) @ u.transpose(-2, -1)
     return output, u, s, output_s
 
 def eigbackward(
@@ -40,7 +40,6 @@ def eigbackward(
     operation: Type[EigOp],
     *args
 ) -> torch.Tensor:
-    output_s = torch.diagonal(output_s, dim1=-1, dim2=-2)
     ds=torch.diag_embed(operation.d(s, *args))
     L = (output_s[:, :, None] - output_s[:, None, :]) / (s[:, :, None] - s[:, None, :])
     L[torch.logical_or(torch.isnan(L), torch.isinf(L))] = 0
