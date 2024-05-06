@@ -10,7 +10,8 @@ from GeomLayers.SPDLayers.utils import symmetric
 __all__ = [
     "SPDExpEig",
     "SPDLogEig",
-    "SPDReEig"
+    "SPDReEig",
+    "SPDTopReEig"
 ]
 
 class EigOp():
