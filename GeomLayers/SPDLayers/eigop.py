@@ -141,7 +141,42 @@ class SPDReEigFunction(Function):
 class SPDReEig(nn.Module):
     def __init__(self, epsilon: float=1e-4):
         super().__init__()
-        self.register_buffer("epsilon", torch.LongTensor([epsilon]))
+        self.register_buffer("epsilon", torch.Tensor([epsilon]))
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return SPDReEigFunction.apply(input, self.epsilon[0])
+
+class TopReEigOp(EigOp):
+    """
+    Huang, Z., & Van Gool, L. J. (2017, February). A Riemannian Network for SPD Matrix Learning.
+    """
+    @classmethod
+    def fn(cls, s: torch.Tensor, n: int) -> torch.Tensor:
+        threshold = s[:, n][:, None]
+        return (s >= threshold) * s + (s < threshold) * threshold
+
+    @classmethod
+    def d(cls, s: torch.Tensor, n: int) -> torch.Tensor:
+        threshold = s[:, n][:, None]
+        return (s >= threshold)
+
+class SPDTopReEigOpFunction(Function):
+    @staticmethod
+    def forward(ctx, input: torch.Tensor, n: int) -> torch.Tensor:
+        output, u, s, output_s = eigforward(input, TopReEigOp, n)
+        ctx.save_for_backward(u, s, output_s, n)
+        return output
+
+    @staticmethod
+    def backward(ctx, gradient: torch.Tensor) -> Tuple[torch.Tensor, Any]:
+        u, s, output_s, n = ctx.saved_tensors
+        output_gradient = eigbackward(gradient, u, s, output_s, TopReEigOp, n)
+        return output_gradient, None
+
+class SPDTopReEig(nn.Module):
+    def __init__(self, n: int):
+        super().__init__()
+        self.register_buffer("n", torch.LongTensor([n]))
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        return SPDTopReEigOpFunction.apply(input, self.n[0])
