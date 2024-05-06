@@ -29,7 +29,7 @@ class StiefelOptimizer():
             if not isinstance(p, StiefelParameter):
                 continue
 
-            if p.grad is None and p.requires_grad:
+            if p.grad is None and not p.requires_grad:
                 continue
 
             self.state[id(p)] = p.data
@@ -43,5 +43,6 @@ def stiefel_projection(input1: torch.Tensor, input2: torch.Tensor) -> torch.Tens
 def stiefel_retraction(input1: torch.Tensor, input2: torch.Tensor) -> torch.Tensor:
     A = input1 + input2
     Q, R = torch.linalg.qr(A)
-    out = Q @ torch.sign(R)
+    sign = torch.diagonal_scatter(torch.zeros_like(R), torch.sign(torch.diagonal(R)))
+    out = Q @ sign
     return out
